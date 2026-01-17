@@ -10,13 +10,22 @@
 
 ## Швидкий старт (Docker)
 
-1. **Клонуйте репозиторій:**
+1. **Використовуйте готовий образ (рекомендовано):**
+   Ви можете використовувати вже зібраний образ з Docker Hub:
    ```bash
-   git clone https://github.com/your-username/dtek-emergency-alert.git
+   docker run -d --name dtek-bot \
+     --env-file .env \
+     -v $(pwd)/data:/data \
+     ruslanmelnychenko/dtek-emergency-alert:latest
+   ```
+
+2. **Або клонуйте репозиторій для локальної збірки:**
+   ```bash
+   git clone https://github.com/RuslanMelnychenko/dtek-emergency-alert.git
    cd dtek-emergency-alert
    ```
 
-2. **Налаштуйте змінні оточення:**
+3. **Налаштуйте змінні оточення:**
    Скопіюйте приклад конфігурації та вкажіть свої дані:
    ```bash
    cp .env.example .env
@@ -63,6 +72,13 @@
 | `TIME_LOCATION`      | Часовий пояс                                       | Europe/Kyiv               |
 | `SCREENSHOT_PATH`    | Шлях до скріншоту                                  | data/currentOutstage.jpeg |
 | `PREV_FILE_PATH`     | Шлях до файлу зі станом                            | data/prevData.json        |
+
+## Автоматизація збірки (GitHub Actions)
+
+При кожному релізі (створенні тегу `v*`) образ автоматично збирається та публікується на Docker Hub.
+Для роботи цього у вашому репозиторії GitHub необхідно додати такі **Secrets** (`Settings -> Secrets and variables -> Actions`):
+- `DOCKERHUB_USERNAME`: ваше ім'я користувача на Docker Hub.
+- `DOCKERHUB_TOKEN`: [Access Token](https://docs.docker.com/security/for-developers/access-tokens/) для Docker Hub.
 
 ## Технології
 - [Go](https://golang.org/)
