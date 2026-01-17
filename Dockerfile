@@ -5,7 +5,9 @@ WORKDIR /modules
 RUN go mod download
 
 # Stage 2: Build
-FROM golang:1.25 as builder
+FROM --platform=$BUILDPLATFORM golang:1.25 as builder
+ARG TARGETOS
+ARG TARGETARCH
 COPY --from=modules /go/pkg /go/pkg
 COPY . /workdir
 WORKDIR /workdir
@@ -13,7 +15,7 @@ WORKDIR /workdir
 RUN PWGO_VER=$(grep -oE "playwright-go v\S+" /workdir/go.mod | sed 's/playwright-go //g') \
     && go install github.com/playwright-community/playwright-go/cmd/playwright@${PWGO_VER}
 # Build your app
-RUN GOOS=linux go build -o /bin/myapp ./cmd/bot/main.go
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /bin/myapp ./cmd/bot/main.go
 
 # Stage 3: Final
 FROM ubuntu:noble
