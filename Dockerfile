@@ -19,8 +19,7 @@ RUN GOOS=linux go build -o /bin/myapp ./cmd/bot/main.go
 FROM ubuntu:noble
 COPY --from=builder /go/bin/playwright /bin/myapp /
 RUN apt-get update && apt-get install -y ca-certificates tzdata \
-    # Install dependencies and all browsers (or specify one)
-    && /playwright install --with-deps \
+    && /playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 ENTRYPOINT ["./myapp"]
 CMD ["bot-checking"]
