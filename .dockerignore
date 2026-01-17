@@ -1,0 +1,8 @@
+.dockerignore
+Dockerfile
+.git
+data/
+.env
+.env.example
+README.md
+/dtek-bot

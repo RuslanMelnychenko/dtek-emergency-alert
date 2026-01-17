@@ -1,0 +1,9 @@
+services:
+  dtek-bot:
+    build:
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
