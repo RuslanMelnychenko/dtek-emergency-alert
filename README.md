@@ -37,7 +37,7 @@
             - HOUSE="10"
          volumes:
             - dtek-monitor-bot-data:/data
-d
+
    volumes:
       dtek-monitor-bot-data:
    ```
