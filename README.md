@@ -24,6 +24,23 @@
      -v $(pwd)/data:/data \
      ruslanmelnychenko/dtek-emergency-alert:latest
    ```
+   Або docker-compose.yml
+   ```yaml
+   services:
+      dtek-monitor-bot:
+         image: ruslanmelnychenko/dtek-emergency-alert:latest
+         restart: unless-stopped
+         environment:
+            - TELEGRAM_BOT_TOKEN=""
+            - TELEGRAM_CHAT_ID=""
+            - STREET="вул. Хрещатик"
+            - HOUSE="10"
+         volumes:
+            - dtek-monitor-bot-data:/data
+d
+   volumes:
+      dtek-monitor-bot-data:
+   ```
 
 2. **Або клонуйте репозиторій для локальної збірки:**
    ```bash
