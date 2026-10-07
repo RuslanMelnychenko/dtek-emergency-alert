@@ -1,5 +1,8 @@
 # DTEK Emergency Alert Bot 🚨
 
+[![Docker Version](https://img.shields.io/docker/v/ruslanmelnychenko/dtek-emergency-alert?sort=semver&label=docker%20version&logo=docker)](https://hub.docker.com/r/ruslanmelnychenko/dtek-emergency-alert/tags)
+[![Docker Pulls](https://img.shields.io/docker/pulls/ruslanmelnychenko/dtek-emergency-alert?logo=docker)](https://hub.docker.com/r/ruslanmelnychenko/dtek-emergency-alert)
+
 Бот для автоматичного відстеження та сповіщення про екстрені відключення електроенергії на сайті ДТЕК Київські електромережі. Бот робить скріншот актуального стану відключень та надсилає його в Telegram при зміні інформації.
 
 ## Особливості
