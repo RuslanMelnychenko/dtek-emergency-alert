@@ -129,7 +129,7 @@ NO_OUTAGE_TEXT=Немає повідомлень про позапланові �
 При кожному релізі (створенні тегу `v*`) образ автоматично збирається та публікується на Docker Hub.
 Для роботи цього у вашому репозиторії GitHub необхідно додати такі **Secrets** (`Settings -> Secrets and variables -> Actions`):
 - `DOCKERHUB_USERNAME`: ваше ім'я користувача на Docker Hub.
-- `DOCKERHUB_TOKEN`: [Access Token](https://docs.docker.com/security/for-developers/access-tokens/) для Docker Hub.
+- `DOCKERHUB_TOKEN`: [Access Token](https://docs.docker.com/security/for-developers/access-tokens/) для Docker Hub з правами **Read, Write, Delete** (потрібні для автоматичного оновлення опису образу з `README.md`).
 
 ## Технології
 - [Go](https://golang.org/)
