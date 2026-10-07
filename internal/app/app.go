@@ -9,6 +9,7 @@ import (
 	"dtek-emergency-alert/internal/storage"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -65,6 +66,11 @@ func (a *App) check() error {
 
 	if currentOutage == nil || !currentOutage.ShowCurOutage || currentOutage.Text == "" {
 		a.logger.Println("No outage reported.")
+		return a.handleNoOutage(prevData, currentOutage)
+	}
+
+	if a.isIgnoredText(currentOutage.Text) {
+		a.logger.Println("Outage is ignored.")
 		return a.handleNoOutage(prevData, currentOutage)
 	}
 
@@ -174,7 +180,7 @@ func (a *App) handleNoOutage(prevData *models.SavedInfo, currentOutage *models.O
 		end = *prevData.PrevEndDate
 		updated = *prevData.PrevUpdateTimestamp
 
-		caption := "<del>" + a.formatDtekMessage(text, start, end, updated) + "</del>\n\n<b>Відключення завершено або інформація відсутня.</b>"
+		caption := "<del>" + a.formatDtekMessage(text, start, end, updated) + "</del>\n\n<b>" + a.cfg.NoOutageText + "</b>"
 
 		err := a.notifier.EditCaption(a.cfg.ChatID, prevData.LastMessageID, caption)
 		if err != nil {
@@ -184,6 +190,18 @@ func (a *App) handleNoOutage(prevData *models.SavedInfo, currentOutage *models.O
 		return a.storage.Save(models.SavedInfo{})
 	}
 	return nil
+}
+
+// isIgnoredText повертає true, якщо text містить хоча б один із IgnoreTexts (без урахування регістру).
+// IgnoreTexts вже приведені до нижнього регістру в config.Load.
+func (a *App) isIgnoredText(text string) bool {
+	text = strings.ToLower(text)
+	for _, ignored := range a.cfg.IgnoreTexts {
+		if strings.Contains(text, ignored) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) isDataIdentical(prevData *models.SavedInfo, currentOutage *models.Outage) bool {

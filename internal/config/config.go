@@ -18,6 +18,8 @@ type Config struct {
 	PrevFilePath     string
 	TimeFormat       string
 	TimeLocation     string
+	IgnoreTexts      []string
+	NoOutageText     string
 }
 
 func Load(checkIntervalSeconds int) Config {
@@ -27,6 +29,7 @@ func Load(checkIntervalSeconds int) Config {
 	v.SetDefault("PREV_FILE_PATH", "data/prevData.json")
 	v.SetDefault("TIME_FORMAT", "15:04 02.01.2006")
 	v.SetDefault("TIME_LOCATION", "Europe/Kyiv")
+	v.SetDefault("NO_OUTAGE_TEXT", "Відключення завершено або інформація відсутня.")
 
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -41,7 +44,20 @@ func Load(checkIntervalSeconds int) Config {
 		PrevFilePath:     v.GetString("PREV_FILE_PATH"),
 		TimeFormat:       v.GetString("TIME_FORMAT"),
 		TimeLocation:     v.GetString("TIME_LOCATION"),
+		IgnoreTexts:      splitList(strings.ToLower(v.GetString("IGNORE_TEXTS")), "|"),
+		NoOutageText:     v.GetString("NO_OUTAGE_TEXT"),
 	}
+}
+
+// splitList розбиває рядок за роздільником, відкидаючи порожні елементи та зайві пробіли.
+func splitList(s, sep string) []string {
+	var result []string
+	for _, part := range strings.Split(s, sep) {
+		if part = strings.TrimSpace(part); part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
 }
 
 func (c Config) Validate() error {
