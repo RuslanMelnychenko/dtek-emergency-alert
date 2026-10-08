@@ -74,7 +74,7 @@
 
 2. **Встановіть Playwright та браузери:**
    ```bash
-   go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps chromium
+   go run github.com/mxschmitt/playwright-go/cmd/playwright install --with-deps chromium
    ```
 
 3. **Скомпілюйте та запустіть:**
@@ -133,7 +133,7 @@ NO_OUTAGE_TEXT=Немає повідомлень про позапланові �
 
 ## Технології
 - [Go](https://golang.org/)
-- [Playwright for Go](https://github.com/playwright-community/playwright-go)
+- [Playwright for Go](https://github.com/mxschmitt/playwright-go)
 - [Telegram Bot API for Go](https://github.com/go-telegram-bot-api/telegram-bot-api)
 
 ## Ліцензія
