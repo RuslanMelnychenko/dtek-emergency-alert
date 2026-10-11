@@ -4,7 +4,6 @@ import (
 	"dtek-emergency-alert/internal/models"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -20,6 +19,8 @@ const (
 	houseAutocompleteListSelector  = "div#house_numautocomplete-list"
 	currentOutstageCard            = "div#showCurOutage.active"
 	timeFormat                     = "15:04 02.01.2006"
+	dtekAjaxURL                    = "https://www.dtek-kem.com.ua/ua/ajax"
+	getHomeNumTimeout              = 15 * time.Second
 )
 
 type Scraper interface {
@@ -67,96 +68,83 @@ func (s *playwrightScraper) ScrapCurrentOutage(street, house, screenshotPath str
 		return nil, fmt.Errorf("could not create page: %w", err)
 	}
 
-	_, err = page.Goto(DTEK_SITE, playwright.PageGotoOptions{
+	// Defer-и виконуються у зворотному порядку: спочатку закривається сторінка
+	// (незавершені response.JSON() отримують помилку), і лише потім catcher чекає
+	// свої горутини та закриває канал.
+	catcher := newHomeNumCatcher(house, s.logger)
+	defer catcher.close()
+	defer page.Close()
+
+	if err := openShutdownsPage(page); err != nil {
+		return nil, err
+	}
+
+	catcher.attach(page)
+
+	if err := selectAddress(page, street, house); err != nil {
+		return nil, err
+	}
+
+	if err := takeOutageScreenshot(page, screenshotPath); err != nil {
+		return nil, err
+	}
+
+	return catcher.wait(getHomeNumTimeout)
+}
+
+// openShutdownsPage відкриває сторінку відключень і закриває модальне вікно, якщо воно є.
+func openShutdownsPage(page playwright.Page) error {
+	_, err := page.Goto(DTEK_SITE, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not goto: %w", err)
+		return fmt.Errorf("could not goto: %w", err)
 	}
-	defer page.Close()
 
 	modalAttemptLocator := page.Locator(modalAttempt)
 	if count, _ := modalAttemptLocator.Count(); count > 0 {
 		modalAttemptLocator.Locator(closeModalButtonSelector).Click()
 	}
+	return nil
+}
 
-	var result *models.Outage
+// selectAddress вводить вулицю та будинок і обирає їх з випадаючих списків.
+// Вибір вулиці ініціює запит getHomeNum, який перехоплює homeNumCatcher.
+func selectAddress(page playwright.Page, street, house string) error {
+	if err := selectStreet(page, street); err != nil {
+		return err
+	}
+	return selectHouse(page, house)
+}
 
-	var wg sync.WaitGroup
-	page.Once("response", func(response playwright.Response) {
-		if response.URL() != "https://www.dtek-kem.com.ua/ua/ajax" {
-			return
-		}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			type statDTO struct {
-				StartDate string `json:"start_date"`
-				EndDate   string `json:"end_date"`
-				SubType   string `json:"sub_type"`
-				Type      string `json:"type"`
-			}
-			type respDTO struct {
-				UpdateTimestamp    string `json:"updateTimestamp"`
-				ShowCurOutageParam bool   `json:"showCurOutageParam"`
-				Data               map[string]statDTO
-			}
-
-			var parsedResponse respDTO
-			jsonErr := response.JSON(&parsedResponse)
-			if jsonErr != nil {
-				s.logger.Println("could not parse response: ", jsonErr)
-				return
-			}
-
-			updateTimestamp, _ := time.Parse(timeFormat, parsedResponse.UpdateTimestamp)
-
-			result = &models.Outage{
-				ShowCurOutage:   parsedResponse.ShowCurOutageParam,
-				UpdateTimestamp: updateTimestamp,
-			}
-
-			if result.ShowCurOutage {
-				if stat, ok := parsedResponse.Data[house]; ok {
-					result.StartDate, _ = time.Parse(timeFormat, stat.StartDate)
-					result.EndDate, _ = time.Parse(timeFormat, stat.EndDate)
-					result.Text = stat.SubType
-					result.Type = stat.Type
-				} else {
-					s.logger.Printf("House %s not found in response data", house)
-				}
-			}
-		}()
-	})
-
-	err = page.Fill(streetInputSelector, street)
-	if err != nil {
-		return nil, fmt.Errorf("could not fill street: %w", err)
+func selectStreet(page playwright.Page, street string) error {
+	if err := page.Fill(streetInputSelector, street); err != nil {
+		return fmt.Errorf("could not fill street: %w", err)
 	}
 
 	streetOption := page.Locator(streetAutocompleteListSelector + " > div").Filter(playwright.LocatorFilterOptions{
 		Has: page.Locator("input[value=\"" + street + "\"]"),
 	}).First()
-	err = streetOption.Click()
-	if err != nil {
-		return nil, fmt.Errorf("could not select street from dropdown: %w", err)
+	if err := streetOption.Click(); err != nil {
+		return fmt.Errorf("could not select street from dropdown: %w", err)
 	}
+	return nil
+}
 
-	err = page.Locator(houseInputSelector).WaitFor(playwright.LocatorWaitForOptions{
+func selectHouse(page playwright.Page, house string) error {
+	houseInput := page.Locator(houseInputSelector)
+	err := houseInput.WaitFor(playwright.LocatorWaitForOptions{
 		State: playwright.WaitForSelectorStateVisible,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not wait for house input to be enabled: %w", err)
+		return fmt.Errorf("could not wait for house input to be enabled: %w", err)
 	}
-	_, err = page.Locator(houseInputSelector).Evaluate("element => element.disabled === false", nil)
-	if err != nil {
-		return nil, fmt.Errorf("house input is still disabled: %w", err)
+	if _, err := houseInput.Evaluate("element => element.disabled === false", nil); err != nil {
+		return fmt.Errorf("house input is still disabled: %w", err)
 	}
 
-	err = page.Fill(houseInputSelector, house)
-	if err != nil {
-		return nil, fmt.Errorf("could not fill house: %w", err)
+	if err := page.Fill(houseInputSelector, house); err != nil {
+		return fmt.Errorf("could not fill house: %w", err)
 	}
 
 	houseAutocompleteListLocator := page.Locator(houseAutocompleteListSelector)
@@ -164,28 +152,24 @@ func (s *playwrightScraper) ScrapCurrentOutage(street, house, screenshotPath str
 		State: playwright.WaitForSelectorStateVisible,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not wait for house autocomplete list: %w", err)
+		return fmt.Errorf("could not wait for house autocomplete list: %w", err)
 	}
 
 	houseOption := houseAutocompleteListLocator.Locator("div").Filter(playwright.LocatorFilterOptions{
 		Has: page.Locator("input[value=\"" + house + "\"]"),
 	}).First()
-	err = houseOption.Click()
-	if err != nil {
-		return nil, fmt.Errorf("could not select house from dropdown: %w", err)
+	if err := houseOption.Click(); err != nil {
+		return fmt.Errorf("could not select house from dropdown: %w", err)
 	}
+	return nil
+}
 
-	card := page.Locator(currentOutstageCard)
-
-	_, err = card.Screenshot(playwright.LocatorScreenshotOptions{
+func takeOutageScreenshot(page playwright.Page, screenshotPath string) error {
+	_, err := page.Locator(currentOutstageCard).Screenshot(playwright.LocatorScreenshotOptions{
 		Path: playwright.String(screenshotPath),
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("could not take screenshot: %w", err)
+		return fmt.Errorf("could not take screenshot: %w", err)
 	}
-
-	wg.Wait()
-
-	return result, nil
+	return nil
 }
